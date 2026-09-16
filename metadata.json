@@ -1,0 +1,6 @@
+{
+  "name": "Vijay General Store",
+  "description": "Employee management system for Vijay General Store with attendance, payroll, leaves, tasks, and business insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
