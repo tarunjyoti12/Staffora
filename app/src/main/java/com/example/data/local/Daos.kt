@@ -71,6 +71,9 @@ interface AttendanceDao {
     @Delete
     suspend fun deleteAttendance(attendance: AttendanceEntity)
 
+    @Query("DELETE FROM attendance WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
+
     @Query("DELETE FROM attendance")
     suspend fun deleteAll()
 }
@@ -94,6 +97,9 @@ interface LeaveDao {
 
     @Delete
     suspend fun deleteLeave(leave: LeaveEntity)
+
+    @Query("DELETE FROM leaves WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
 
     @Query("DELETE FROM leaves")
     suspend fun deleteAll()
@@ -137,6 +143,9 @@ interface AdvanceDao {
     @Delete
     suspend fun deleteAdvance(advance: AdvanceEntity)
 
+    @Query("DELETE FROM advances WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
+
     @Query("DELETE FROM advances")
     suspend fun deleteAll()
 }
@@ -157,6 +166,9 @@ interface OvertimeDao {
 
     @Delete
     suspend fun deleteOvertime(overtime: OvertimeEntity)
+
+    @Query("DELETE FROM overtime WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
 
     @Query("DELETE FROM overtime")
     suspend fun deleteAll()
@@ -185,6 +197,9 @@ interface PayrollDao {
     @Delete
     suspend fun deletePayroll(payroll: PayrollEntity)
 
+    @Query("DELETE FROM payroll WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
+
     @Query("DELETE FROM payroll")
     suspend fun deleteAll()
 }
@@ -206,6 +221,9 @@ interface TaskDao {
     @Delete
     suspend fun deleteTask(task: TaskEntity)
 
+    @Query("DELETE FROM tasks WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
+
     @Query("DELETE FROM tasks")
     suspend fun deleteAll()
 }
@@ -226,6 +244,9 @@ interface DocumentDao {
 
     @Delete
     suspend fun deleteDocument(document: DocumentEntity)
+
+    @Query("DELETE FROM documents WHERE employeeId = :employeeId")
+    suspend fun deleteForEmployee(employeeId: Long)
 
     @Query("DELETE FROM documents")
     suspend fun deleteAll()

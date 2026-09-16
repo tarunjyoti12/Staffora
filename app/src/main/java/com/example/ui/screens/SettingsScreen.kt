@@ -209,7 +209,7 @@ fun SettingsScreen(
             }
         }
 
-        // Sample Data & Database Management
+        // Database Management & Clear Data
         item {
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -218,35 +218,21 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Store Ledger & Demo Controls", fontWeight = FontWeight.Bold)
+                    Text("Database & Storage Management", fontWeight = FontWeight.Bold)
                     Text(
-                        text = "Easily clear seeded demo employees or reload fresh store setup.",
+                        text = "Manage your local store database. Clear all records if you wish to start completely fresh.",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    OutlinedButton(
+                        onClick = { showClearSampleConfirm = true },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAbsentRed),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = { showClearSampleConfirm = true },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Clear Demo Data", fontSize = 11.sp)
-                        }
-
-                        OutlinedButton(
-                            onClick = { showResetStoreConfirm = true },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Reset Sample Data", fontSize = 11.sp)
-                        }
+                        Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(16.dp), tint = StatusAbsentRed)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Clear All Data (Start Fresh)", fontSize = 12.sp, color = StatusAbsentRed, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -384,27 +370,14 @@ fun SettingsScreen(
     // Confirmation dialogs
     if (showClearSampleConfirm) {
         ConfirmationDialog(
-            title = "Clear Demo Employees?",
-            message = "This will remove the 4 sample employees (Ramesh, Priya, Suresh, Anita) and their demo records.",
-            confirmText = "Clear Demo Data",
+            title = "Clear All Store Data?",
+            message = "This will permanently purge all employees, attendance, leaves, payroll, advances, overtime, tasks, documents, and notifications, leaving an empty database ready for your business.",
+            confirmText = "Clear All Data",
             onConfirm = {
                 viewModel.clearSampleData()
                 showClearSampleConfirm = false
             },
             onDismiss = { showClearSampleConfirm = false }
-        )
-    }
-
-    if (showResetStoreConfirm) {
-        ConfirmationDialog(
-            title = "Reset Store Sample Data?",
-            message = "This will replace current data with a clean set of Vijay General Store staff, attendance, and tasks.",
-            confirmText = "Reset",
-            onConfirm = {
-                viewModel.resetStoreData()
-                showResetStoreConfirm = false
-            },
-            onDismiss = { showResetStoreConfirm = false }
         )
     }
 }

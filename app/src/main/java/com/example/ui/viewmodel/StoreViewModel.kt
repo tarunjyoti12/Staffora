@@ -98,7 +98,9 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.seedSampleDataIfNeeded()
+            // Requirement: Completely remove all dummy, sample, test, placeholder data.
+            // Do not automatically seed or recreate dummy data on startup.
+            repository.clearSampleData()
         }
     }
 
@@ -286,6 +288,21 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
             repository.toggleEmployeeActive(employee, _currentUserRole.value)
             val state = if (!employee.isActive) "activated" else "deactivated"
             showMessage("Employee ${employee.fullName} $state")
+        }
+    }
+
+    fun setEmployeeActive(employee: EmployeeEntity, isActive: Boolean) {
+        viewModelScope.launch {
+            repository.setEmployeeActiveStatus(employee, isActive, _currentUserRole.value)
+            val state = if (isActive) "reactivated" else "deactivated"
+            showMessage("Employee ${employee.fullName} $state (all historical records preserved)")
+        }
+    }
+
+    fun deleteEmployeePermanently(employee: EmployeeEntity) {
+        viewModelScope.launch {
+            repository.deleteEmployeePermanently(employee, _currentUserRole.value)
+            showMessage("Employee ${employee.fullName} permanently deleted")
         }
     }
 

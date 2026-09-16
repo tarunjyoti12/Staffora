@@ -119,6 +119,40 @@ class StoreRepository(private val db: AppDatabase) {
         )
     }
 
+    suspend fun setEmployeeActiveStatus(employee: EmployeeEntity, isActive: Boolean, performedBy: UserRole = UserRole.OWNER) {
+        val updated = employee.copy(isActive = isActive)
+        employeeDao.updateEmployee(updated)
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                userRole = performedBy.name,
+                action = if (isActive) "EMPLOYEE_ACTIVATED" else "EMPLOYEE_DEACTIVATED",
+                affectedRecord = "${employee.empCode} - ${employee.fullName}",
+                details = "Employee ${employee.fullName} marked as ${if (isActive) "Active" else "Deactivated/Inactive"}. Historical records preserved."
+            )
+        )
+    }
+
+    suspend fun deleteEmployeePermanently(employee: EmployeeEntity, performedBy: UserRole = UserRole.OWNER) {
+        // Safely cascade deletion of all child records to prevent broken references or orphaned rows
+        attendanceDao.deleteForEmployee(employee.id)
+        leaveDao.deleteForEmployee(employee.id)
+        advanceDao.deleteForEmployee(employee.id)
+        overtimeDao.deleteForEmployee(employee.id)
+        payrollDao.deleteForEmployee(employee.id)
+        taskDao.deleteForEmployee(employee.id)
+        documentDao.deleteForEmployee(employee.id)
+        employeeDao.deleteEmployee(employee)
+
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                userRole = performedBy.name,
+                action = "EMPLOYEE_DELETED",
+                affectedRecord = "${employee.empCode} - ${employee.fullName}",
+                details = "Permanently deleted employee ${employee.fullName} and safely cleaned up related records."
+            )
+        )
+    }
+
     suspend fun markAttendance(
         employeeId: Long,
         employeeName: String,
@@ -676,14 +710,16 @@ class StoreRepository(private val db: AppDatabase) {
 
     suspend fun clearSampleData() {
         employeeDao.deleteSampleEmployees()
-        auditLogDao.insertLog(
-            AuditLogEntity(
-                userRole = UserRole.OWNER.name,
-                action = "SAMPLE_DATA_CLEARED",
-                affectedRecord = "Vijay General Store",
-                details = "Demo employees and sample records removed"
-            )
-        )
+        // If there were sample records or demo data created, clear them completely
+        attendanceDao.deleteAll()
+        leaveDao.deleteAll()
+        holidayDao.deleteAll()
+        advanceDao.deleteAll()
+        overtimeDao.deleteAll()
+        payrollDao.deleteAll()
+        taskDao.deleteAll()
+        documentDao.deleteAll()
+        auditLogDao.deleteAll()
     }
 
     suspend fun clearAllData() {

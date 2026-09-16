@@ -26,10 +26,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -85,12 +88,17 @@ fun EmployeesScreen(
     val userRole by viewModel.currentUserRole.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
+    var statusFilter by remember { mutableStateOf("ALL") } // "ALL", "ACTIVE", "INACTIVE"
     var selectedDept by remember { mutableStateOf("ALL") }
     var sortBy by remember { mutableStateOf("CODE") } // CODE, NAME, DATE
 
     var showAddEditDialog by remember { mutableStateOf(false) }
     var employeeToEdit by remember { mutableStateOf<EmployeeEntity?>(null) }
     var selectedEmployeeForDetail by remember { mutableStateOf<EmployeeEntity?>(null) }
+
+    // Dialog confirmation states
+    var employeeToDelete by remember { mutableStateOf<EmployeeEntity?>(null) }
+    var employeeToDeactivate by remember { mutableStateOf<EmployeeEntity?>(null) }
 
     val departments = listOf("ALL") + Department.values().map { it.name }
 
@@ -103,7 +111,13 @@ fun EmployeesScreen(
                 emp.department.contains(searchQuery, ignoreCase = true)
 
         val matchesDept = selectedDept == "ALL" || emp.department == selectedDept
-        matchesSearch && matchesDept
+        val matchesStatus = when (statusFilter) {
+            "ACTIVE" -> emp.isActive
+            "INACTIVE" -> !emp.isActive
+            else -> true
+        }
+
+        matchesSearch && matchesDept && matchesStatus
     }.sortedWith { a, b ->
         when (sortBy) {
             "NAME" -> a.fullName.compareTo(b.fullName, ignoreCase = true)
@@ -135,6 +149,34 @@ fun EmployeesScreen(
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
+            }
+
+            // Status Filters: All, Active, Inactive
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val activeCount = employees.count { it.isActive }
+                    val inactiveCount = employees.count { !it.isActive }
+
+                    FilterChip(
+                        selected = statusFilter == "ALL",
+                        onClick = { statusFilter = "ALL" },
+                        label = { Text("All (${employees.size})", fontSize = 12.sp, fontWeight = if (statusFilter == "ALL") FontWeight.Bold else FontWeight.Normal) }
+                    )
+                    FilterChip(
+                        selected = statusFilter == "ACTIVE",
+                        onClick = { statusFilter = "ACTIVE" },
+                        label = { Text("Active ($activeCount)", fontSize = 12.sp, fontWeight = if (statusFilter == "ACTIVE") FontWeight.Bold else FontWeight.Normal) }
+                    )
+                    FilterChip(
+                        selected = statusFilter == "INACTIVE",
+                        onClick = { statusFilter = "INACTIVE" },
+                        label = { Text("Inactive ($inactiveCount)", fontSize = 12.sp, fontWeight = if (statusFilter == "INACTIVE") FontWeight.Bold else FontWeight.Normal) }
+                    )
+                }
             }
 
             // Department Filters
@@ -295,6 +337,56 @@ fun EmployeesScreen(
                                 )
                             }
                         }
+
+                        // Quick actions row on card
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Deactivate / Activate button
+                            OutlinedButton(
+                                onClick = {
+                                    if (emp.isActive) {
+                                        employeeToDeactivate = emp
+                                    } else {
+                                        viewModel.setEmployeeActive(emp, true)
+                                    }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(
+                                    if (emp.isActive) Icons.Default.Block else Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = if (emp.isActive) StoreAmber else StatusPresentGreen
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    if (emp.isActive) "Deactivate" else "Reactivate",
+                                    fontSize = 11.sp,
+                                    color = if (emp.isActive) StoreAmber else StatusPresentGreen
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Delete button
+                            OutlinedButton(
+                                onClick = { employeeToDelete = emp },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAbsentRed),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(14.dp), tint = StatusAbsentRed)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete", fontSize = 11.sp, color = StatusAbsentRed)
+                            }
+                        }
                     }
                 }
             }
@@ -343,8 +435,134 @@ fun EmployeesScreen(
                 showAddEditDialog = true
             },
             onToggleActive = {
-                viewModel.toggleEmployeeActive(emp)
-                selectedEmployeeForDetail = emp.copy(isActive = !emp.isActive)
+                if (emp.isActive) {
+                    employeeToDeactivate = emp
+                } else {
+                    viewModel.setEmployeeActive(emp, true)
+                    selectedEmployeeForDetail = emp.copy(isActive = true)
+                }
+            },
+            onDelete = {
+                employeeToDelete = emp
+                selectedEmployeeForDetail = null
+            }
+        )
+    }
+
+    // Confirmation Dialog for Deactivation
+    employeeToDeactivate?.let { emp ->
+        AlertDialog(
+            onDismissRequest = { employeeToDeactivate = null },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = StoreAmber) },
+            title = { Text("Deactivate Employee?", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Are you sure you want to deactivate ${emp.fullName} (${emp.empCode})?",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Deactivating will mark this employee as inactive. All their historical attendance, leaves, payroll, advances, overtime, tasks, and documents will be safely preserved in the system.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "You can reactivate this employee at any time using the Inactive filter.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StatusPresentGreen,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setEmployeeActive(emp, false)
+                        if (selectedEmployeeForDetail?.id == emp.id) {
+                            selectedEmployeeForDetail = emp.copy(isActive = false)
+                        }
+                        employeeToDeactivate = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StoreAmber)
+                ) {
+                    Text("Deactivate", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { employeeToDeactivate = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Confirmation Dialog for Permanent Deletion
+    employeeToDelete?.let { emp ->
+        AlertDialog(
+            onDismissRequest = { employeeToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = StatusAbsentRed) },
+            title = { Text("Permanently Delete Employee?", fontWeight = FontWeight.Bold, color = StatusAbsentRed) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Are you sure you want to permanently delete ${emp.fullName} (${emp.empCode})?",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "This will permanently delete this employee and safely clean up their related records to prevent errors.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        color = StoreAmber.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                "💡 Recommended safer alternative:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFFB45309)
+                            )
+                            Text(
+                                "Choose 'Deactivate' instead if you wish to preserve historical records, salary slips, and attendance history.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteEmployeePermanently(emp)
+                        if (selectedEmployeeForDetail?.id == emp.id) {
+                            selectedEmployeeForDetail = null
+                        }
+                        employeeToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusAbsentRed)
+                ) {
+                    Text("Delete Permanently", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val target = emp
+                            employeeToDelete = null
+                            viewModel.setEmployeeActive(target, false)
+                        }
+                    ) {
+                        Text("Deactivate Instead")
+                    }
+                    OutlinedButton(onClick = { employeeToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
             }
         )
     }
@@ -628,7 +846,8 @@ fun EmployeeDetailDialog(
     userRole: UserRole,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onToggleActive: () -> Unit
+    onToggleActive: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val attendance by viewModel.repository.getAttendanceForEmployee(employee.id).collectAsState(emptyList())
     val leaves by viewModel.repository.getLeavesForEmployee(employee.id).collectAsState(emptyList())
@@ -961,13 +1180,33 @@ fun EmployeeDetailDialog(
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Edit Profile")
+                    Text("Edit")
                 }
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onToggleActive) {
-                Text(if (employee.isActive) "Deactivate" else "Activate")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Delete button
+                OutlinedButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAbsentRed)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = StatusAbsentRed)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete", color = StatusAbsentRed)
+                }
+
+                // Deactivate / Reactivate button
+                OutlinedButton(onClick = onToggleActive) {
+                    Icon(
+                        if (employee.isActive) Icons.Default.Block else Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (employee.isActive) StoreAmber else StatusPresentGreen
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (employee.isActive) "Deactivate" else "Reactivate")
+                }
             }
         }
     )
